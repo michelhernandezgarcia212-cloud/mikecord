@@ -25,6 +25,7 @@ function App() {
     return () => subscription.unsubscribe();
   }, [setSession, fetchProfile]);
 
+  // Si ya hay sesión, traemos los servidores
   useEffect(() => {
     if (session) fetchServers();
   }, [session, fetchServers]);
