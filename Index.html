@@ -1,0 +1,831 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<meta name="theme-color" content="#1e1f24">
+<title>Mikecord</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; -webkit-tap-highlight-color: transparent; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+  :root {
+    --bg: #1e1f24; --bg2: #25262c; --bg3: #2e3038; --sidebar: #16171b;
+    --txt: #e8e8ea; --txt2: #9a9ca6; --accent: #ff7a2f; --accent-d: #c9560f;
+    --green: #3aa856; --theme-bg: var(--bg); --bounce: cubic-bezier(0.34, 1.56, 0.64, 1);
+  }
+  body.light-theme {
+    --bg: #f2f3f5; --bg2: #ffffff; --bg3: #e3e5e8; --sidebar: #e3e5e8;
+    --txt: #060607; --txt2: #5c5e66; --theme-bg: var(--bg);
+  }
+  html, body { height: 100%; width: 100%; background: #0d0e11; overflow: hidden; }
+  body { display: flex; justify-content: center; align-items: center; color: var(--txt); }
+  
+  .app { width: 100%; max-width: 400px; height: 100vh; height: 100dvh; background: var(--theme-bg); overflow: hidden; position: relative; display: flex; flex-direction: column; transition: background 0.4s ease, color 0.4s ease; }
+  @media (min-width: 450px) { .app { border-radius: 26px; height: 90vh; box-shadow: 0 24px 60px rgba(0,0,0,0.6); } }
+  svg { fill: currentColor; width: 24px; height: 24px; }
+
+  /* ===== Pantalla Principal (Canales) ===== */
+  .view { position: absolute; inset: 0; display: flex; flex-direction: column; background: var(--theme-bg); transition: transform 0.35s var(--bounce), opacity 0.3s; z-index: 1; }
+  
+  /* Banner del servidor */
+  .server-banner { width: 100%; height: 120px; background: linear-gradient(135deg, var(--accent), var(--accent-d)); position: relative; flex-shrink: 0; }
+  
+  .main-header { display: flex; align-items: center; padding: 15px 20px; gap: 12px; position: absolute; top: 0; left: 0; right: 0; z-index: 10; background: linear-gradient(to bottom, rgba(0,0,0,0.6), transparent); }
+  .icon-btn { background: rgba(0,0,0,0.4); border: none; border-radius: 12px; width: 44px; height: 44px; display: flex; align-items: center; justify-content: center; color: #fff; cursor: pointer; box-shadow: 0 4px 0 rgba(0,0,0,0.2); transition: transform 0.1s, box-shadow 0.1s; backdrop-filter: blur(4px); }
+  .icon-btn:active { transform: translateY(4px); box-shadow: 0 0 0 transparent; }
+  .server-title { font-size: 22px; font-weight: 900; letter-spacing: -0.5px; line-height: 1; text-shadow: 0 2px 4px rgba(0,0,0,0.5); color: #fff; flex: 1; }
+  
+  .channel-list { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px 20px 100px; }
+  .ch-category { font-size: 12px; text-transform: uppercase; color: var(--txt2); font-weight: 800; margin: 20px 0 10px; letter-spacing: 0.5px; display: flex; justify-content: space-between; align-items: center; }
+  .ch-item { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 16px; color: var(--txt2); font-size: 16px; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-bottom: 4px; }
+  .ch-item:active { background: var(--bg3); transform: scale(0.98); }
+  .ch-item svg { width: 20px; height: 20px; opacity: 0.7; }
+
+  /* Barra inferior */
+  .tab-bar { position: absolute; bottom: 0; left: 0; right: 0; height: 80px; background: var(--bg2); display: flex; align-items: center; justify-content: space-around; padding: 0 10px 20px; border-top: 1px solid rgba(0,0,0,0.1); z-index: 10; }
+  .tab-btn { background: transparent; border: none; color: var(--txt2); padding: 12px; cursor: pointer; border-radius: 16px; transition: color 0.2s, transform 0.1s; display: flex; flex-direction: column; align-items: center; }
+  .tab-btn:active { transform: scale(0.85); }
+  .tab-btn.active { color: var(--accent); }
+  .tab-avatar { width: 28px; height: 28px; border-radius: 50%; background: var(--accent); border: 2px solid transparent; display: flex; align-items: center; justify-content: center; font-weight: bold; color: white; background-size: cover; background-position: center; }
+    /* ===== Vista de Chat ===== */
+  .chat-view { transform: translateX(100%); z-index: 2; }
+  .chat-view.active { transform: translateX(0); }
+  .chat-header { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.05); background: var(--bg2); }
+  .chat-header .title { font-size: 17px; font-weight: 800; }
+  
+  /* Scroll del chat */
+  .chat-messages { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; display: flex; flex-direction: column; gap: 16px; position: relative; }
+  
+  .msg { display: flex; gap: 12px; animation: fadeUp 0.3s ease; position: relative; border-radius: 12px; padding: 4px; transition: background 0.2s; }
+  .msg:active { background: rgba(255,255,255,0.05); } /* Feedback al mantener presionado */
+  @keyframes fadeUp { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+  
+  .msg-avatar { width: 38px; height: 38px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; flex-shrink: 0; background-size: cover; background-position: center; }
+  .msg-content { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+  .msg-info { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .msg-name { font-weight: 800; font-size: 14px; display: flex; align-items: center; gap: 4px; }
+  
+  /* Iconito de Rol (SVG o Imagen) en el nombre */
+  .role-icon { width: 16px; height: 16px; object-fit: contain; border-radius: 4px; }
+  
+  .msg-time { font-size: 11px; color: var(--txt2); }
+  .msg-text { font-size: 15px; color: var(--txt); line-height: 1.4; word-break: break-word; }
+  
+  /* Estilo para las menciones (@alguien) */
+  .mention { background: rgba(255, 122, 47, 0.2); color: var(--accent); font-weight: bold; padding: 2px 6px; border-radius: 6px; cursor: pointer; }
+  .mention:active { background: rgba(255, 122, 47, 0.4); }
+
+  /* Indicador de "Escribiendo..." */
+  .typing-indicator { padding: 0 20px 10px; font-size: 12px; color: var(--txt2); font-weight: bold; height: 24px; display: flex; align-items: center; opacity: 0; transition: opacity 0.3s; }
+  .typing-indicator.show { opacity: 1; }
+  .typing-dots { display: inline-flex; gap: 2px; margin-left: 4px; }
+  .typing-dots span { width: 4px; height: 4px; background: var(--txt2); border-radius: 50%; animation: bounceDot 1.4s infinite ease-in-out both; }
+  .typing-dots span:nth-child(1) { animation-delay: -0.32s; }
+  .typing-dots span:nth-child(2) { animation-delay: -0.16s; }
+  @keyframes bounceDot { 0%, 80%, 100% { transform: scale(0); } 40% { transform: scale(1); } }
+
+  /* ===== Menú de Reacciones Flotante ===== */
+  .reaction-menu { position: absolute; background: var(--bg2); padding: 8px; border-radius: 20px; display: flex; gap: 8px; box-shadow: 0 10px 25px rgba(0,0,0,0.5); z-index: 50; opacity: 0; transform: scale(0.8) translateY(10px); pointer-events: none; transition: all 0.2s var(--bounce); }
+  .reaction-menu.show { opacity: 1; transform: scale(1) translateY(0); pointer-events: auto; }
+  .reaction-btn { background: transparent; border: none; font-size: 20px; cursor: pointer; padding: 4px; border-radius: 50%; transition: transform 0.1s; }
+  .reaction-btn:active { transform: scale(1.3); }
+  
+  /* Reacciones pegadas al mensaje */
+  .msg-reactions { display: flex; gap: 4px; margin-top: 4px; flex-wrap: wrap; }
+  .reaction-badge { background: var(--bg3); border: 1px solid rgba(255,255,255,0.1); padding: 2px 8px; border-radius: 12px; font-size: 12px; display: flex; align-items: center; gap: 4px; cursor: pointer; transition: background 0.2s; }
+  .reaction-badge:active { background: var(--accent); border-color: var(--accent); }
+
+  .chat-input-area { padding: 12px 20px 24px; display: flex; gap: 10px; background: var(--theme-bg); }
+  .chat-input-area input { flex: 1; background: var(--bg3); border: none; border-radius: 16px; padding: 16px; color: var(--txt); font-size: 15px; outline: none; }
+  
+  .send-btn { width: 52px; height: 52px; border-radius: 16px; background: var(--accent); color: #fff; border: none; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 0 var(--accent-d); transition: transform 0.1s, box-shadow 0.1s; cursor: pointer; }
+  .send-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-d); }
+
+  /* ===== Menú Lateral ===== */
+  .backdrop { position: absolute; inset: 0; background: rgba(0,0,0,0.6); opacity: 0; pointer-events: none; transition: opacity 0.3s; z-index: 15; backdrop-filter: blur(2px); }
+  .backdrop.show { opacity: 1; pointer-events: auto; }
+  .drawer { position: absolute; top: 0; bottom: 0; left: 0; width: 280px; background: var(--sidebar); z-index: 20; transform: translateX(-100%); transition: transform 0.4s var(--bounce); display: flex; flex-direction: column; }
+  .drawer.open { transform: translateX(0); }
+  .drawer-header { padding: 24px 20px; display: flex; justify-content: space-between; align-items: center; }
+  .server-list { padding: 0 12px; overflow-y: auto; -webkit-overflow-scrolling: touch; }
+  .server-item { display: flex; align-items: center; gap: 12px; padding: 12px; border-radius: 12px; cursor: pointer; transition: background 0.2s; }
+  .server-item:hover { background: rgba(255,255,255,0.05); }
+  .server-icon { width: 48px; height: 48px; border-radius: 16px; background: var(--bg3); display: flex; align-items: center; justify-content: center; font-weight: bold; font-size: 20px; color: var(--txt); overflow: hidden; background-size: cover; background-position: center;}
+  .add-server .server-icon { background: transparent; border: 2px dashed var(--txt2); color: var(--txt2); }
+    /* ===== Ajustes de Servidor (Nueva Pantalla) ===== */
+  .settings-view { transform: translateX(100%); z-index: 4; background: var(--theme-bg); display: flex; flex-direction: column; }
+  .settings-view.active { transform: translateX(0); }
+  .settings-header { padding: 20px; display: flex; align-items: center; gap: 16px; border-bottom: 1px solid var(--bg3); }
+  .settings-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 20px; }
+  
+  .role-card { display: flex; align-items: center; justify-content: space-between; background: var(--bg2); padding: 12px 16px; border-radius: 16px; margin-bottom: 12px; border: 1px solid var(--bg3); cursor: pointer; transition: transform 0.1s; }
+  .role-card:active { transform: scale(0.98); }
+  .role-info { display: flex; align-items: center; gap: 12px; }
+  .role-color-dot { width: 16px; height: 16px; border-radius: 50%; }
+  .role-icon-preview { width: 24px; height: 24px; object-fit: contain; border-radius: 4px; }
+
+  /* ===== Crear / Editar Rol (Modal) ===== */
+  .role-modal-content { background: var(--bg); width: 100%; height: 100%; position: absolute; inset: 0; z-index: 60; display: flex; flex-direction: column; transform: translateY(100%); transition: transform 0.3s var(--bounce); }
+  .role-modal-content.show { transform: translateY(0); }
+  .role-form { padding: 20px; display: flex; flex-direction: column; gap: 16px; overflow-y: auto; }
+  
+  /* Selector de colores predefinidos */
+  .color-options { display: flex; gap: 10px; flex-wrap: wrap; }
+  .color-opt { width: 36px; height: 36px; border-radius: 50%; cursor: pointer; border: 3px solid transparent; transition: transform 0.1s; }
+  .color-opt.active { border-color: var(--txt); transform: scale(1.1); }
+
+  /* ===== Creador de Servidor ===== */
+  .create-view { transform: translateY(100%); z-index: 3; background: var(--theme-bg); display: flex; flex-direction: column; }
+  .create-view.active { transform: translateY(0); }
+  .create-header { padding: 20px; display: flex; justify-content: space-between; align-items: center; }
+  .create-content { padding: 20px; display: flex; flex-direction: column; align-items: center; gap: 20px; }
+  .upload-circle { width: 100px; height: 100px; border-radius: 50%; background: var(--bg3); border: 2px dashed var(--txt2); display: flex; align-items: center; justify-content: center; cursor: pointer; overflow: hidden; position: relative; color: var(--txt2); background-size: cover; background-position: center; }
+  .upload-circle input[type="file"] { display: none; }
+  .upload-circle img { width: 100%; height: 100%; object-fit: cover; }
+  .input-group { width: 100%; display: flex; flex-direction: column; gap: 8px; }
+  .input-group label { font-size: 12px; color: var(--txt2); font-weight: 800; text-transform: uppercase; }
+  .input-group input, .input-group textarea { width: 100%; background: var(--bg3); border: none; border-radius: 12px; padding: 16px; color: var(--txt); font-size: 16px; outline: none; font-family: inherit; resize: none; }
+  .primary-btn { width: 100%; background: var(--accent); color: #fff; border: none; border-radius: 12px; padding: 18px; font-weight: 800; font-size: 16px; box-shadow: 0 4px 0 var(--accent-d); transition: transform 0.1s, box-shadow 0.1s; margin-top: 20px; cursor: pointer; }
+  .primary-btn:active { transform: translateY(4px); box-shadow: 0 0 0 var(--accent-d); }
+
+  /* ===== Panel de Perfil (Deslizable) ===== */
+  .profile-view { position: absolute; top: 5%; bottom: 0; left: 0; right: 0; background: var(--theme-bg); border-radius: 24px 24px 0 0; z-index: 30; transform: translateY(100%); transition: transform 0.4s var(--bounce); display: flex; flex-direction: column; box-shadow: 0 -10px 40px rgba(0,0,0,0.5); }
+  .profile-view.open { transform: translateY(0); }
+  .drag-handle-area { padding: 16px 0; display: flex; justify-content: center; cursor: grab; }
+  .drag-handle { width: 40px; height: 5px; background: var(--bg3); border-radius: 3px; }
+  .profile-content { flex: 1; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 0 24px 60px; }
+  
+  /* Avatar con foto y edición */
+  .profile-avatar-container { position: relative; display: flex; justify-content: center; margin: 0 auto 16px; width: 90px; height: 90px; }
+  .profile-avatar { width: 100%; height: 100%; border-radius: 50%; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 40px; font-weight: 900; color: #fff; box-shadow: 0 6px 0 var(--accent-d); background-size: cover; background-position: center; cursor: pointer; }
+  .status-dot { position: absolute; bottom: 0; right: 0; width: 24px; height: 24px; border-radius: 50%; border: 4px solid var(--theme-bg); background: var(--green); cursor: pointer; z-index: 2; }
+  
+  /* Título de sección y grids */
+  .section-title { font-size: 12px; color: var(--txt2); text-transform: uppercase; font-weight: 800; margin: 24px 0 12px; }
+  .theme-grid { display: flex; gap: 12px; flex-wrap: wrap; }
+  .theme-option { width: 50px; height: 50px; border-radius: 16px; border: 2px solid transparent; cursor: pointer; display: flex; align-items: center; justify-content: center; transition: transform 0.2s; }
+  .theme-option.active { border-color: var(--txt); }
+  .theme-dark { background: #1e1f24; }
+  .theme-light { background: #f2f3f5; color: #000; }
+  .theme-custom { background: var(--bg3); border: 2px dashed var(--txt2); }
+  
+  /* ===== Modales generales y Toast ===== */
+  .modal { position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 50; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity 0.3s; }
+  .modal.show { opacity: 1; pointer-events: auto; }
+  .modal-content { background: var(--bg2); padding: 24px; border-radius: 24px; width: 90%; max-width: 320px; text-align: center; }
+  .color-pickers { display: flex; justify-content: center; gap: 16px; margin: 20px 0; }
+  .color-pickers input[type="color"] { -webkit-appearance: none; border: none; width: 50px; height: 50px; border-radius: 50%; cursor: pointer; padding: 0; background: none; }
+  .color-pickers input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
+  .color-pickers input[type="color"]::-webkit-color-swatch { border: 2px solid var(--txt); border-radius: 50%; }
+  
+  .toast { position: absolute; bottom: 100px; left: 50%; transform: translate(-50%, 20px); background: var(--txt); color: var(--theme-bg); padding: 12px 24px; border-radius: 16px; font-weight: 800; font-size: 15px; opacity: 0; transition: all 0.3s; z-index: 100; pointer-events: none; white-space: nowrap;}
+  .toast.show { opacity: 1; transform: translate(-50%, 0); }
+</style>
+</head>
+<body>
+<!-- Iconos SVG -->
+<svg style="display: none;">
+  <symbol id="icon-menu" viewBox="0 0 24 24"><path d="M3 18h18v-2H3v2zm0-5h18v-2H3v2zm0-7v2h18V6H3z"/></symbol>
+  <symbol id="icon-hash" viewBox="0 0 24 24"><path d="M20 10V8h-4V4h-2v4h-4V4H8v4H4v2h4v4H4v2h4v4h2v-4h4v4h2v-4h4v-2h-4v-4h4zm-6 4h-4v-4h4v4z"/></symbol>
+  <symbol id="icon-volume" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></symbol>
+  <symbol id="icon-home" viewBox="0 0 24 24"><path d="M10 20v-6h4v6h5v-8h3L12 3 2 12h3v8z"/></symbol>
+  <symbol id="icon-msg" viewBox="0 0 24 24"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2zm0 14H6l-2 2V4h16v12z"/></symbol>
+  <symbol id="icon-bell" viewBox="0 0 24 24"><path d="M12 22c1.1 0 2-.9 2-2h-4c0 1.1.9 2 2 2zm6-6v-5c0-3.07-1.63-5.64-4.5-6.32V4c0-.83-.67-1.5-1.5-1.5s-1.5.67-1.5 1.5v.68C7.64 5.36 6 7.92 6 11v5l-2 2v1h16v-1l-2-2z"/></symbol>
+  <symbol id="icon-back" viewBox="0 0 24 24"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></symbol>
+  <symbol id="icon-send" viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></symbol>
+  <symbol id="icon-add" viewBox="0 0 24 24"><path d="M19 13h-6v6h-2v-6H5v-2h6V5h2v6h6v2z"/></symbol>
+  <symbol id="icon-close" viewBox="0 0 24 24"><path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z"/></symbol>
+  <!-- Nuevos Iconos -->
+  <symbol id="icon-settings" viewBox="0 0 24 24"><path d="M19.14,12.94c0.04-0.3,0.06-0.61,0.06-0.94c0-0.32-0.02-0.64-0.06-0.94l2.03-1.58c0.18-0.14,0.23-0.41,0.12-0.61 l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39,0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4,2.81c-0.04-0.24-0.24-0.41-0.48-0.41 h-3.84c-0.24,0-0.43,0.17-0.47,0.41L9.25,5.35C8.66,5.59,8.12,5.92,7.63,6.29L5.24,5.33c-0.22-0.08-0.47,0-0.59,0.22L2.73,8.87 C2.62,9.08,2.66,9.34,2.86,9.48l2.03,1.58C4.84,11.36,4.8,11.69,4.8,12s0.02,0.64,0.06,0.94l-2.03,1.58 c-0.18,0.14-0.23,0.41-0.12,0.61l1.92,3.32c0.12,0.22,0.37,0.29,0.59,0.22l2.39-0.96c0.5,0.38,1.03,0.7,1.62,0.94l0.36,2.54 c0.05,0.24,0.24,0.41,0.48,0.41h3.84c0.24,0,0.44-0.17,0.47-0.41l0.36-2.54c0.59-0.24,1.13-0.56,1.62-0.94l2.39,0.96 c0.22,0.08,0.47,0,0.59-0.22l1.92-3.32c0.12-0.22,0.07-0.49-0.12-0.61L19.14,12.94z M12,15.6c-1.98,0-3.6-1.62-3.6-3.6 s1.62-3.6,3.6-3.6s3.6,1.62,3.6,3.6S13.98,15.6,12,15.6z"/></symbol>
+  <symbol id="icon-search" viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27C15.41 12.59 16 11.11 16 9.5 16 5.91 13.09 3 9.5 3S3 5.91 3 9.5 5.91 16 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/></symbol>
+</svg>
+
+<div class="app" id="app">
+
+  <!-- PANTALLA 1: CANALES -->
+  <div class="view" id="mainView">
+    <!-- Banner del servidor -->
+    <div class="server-banner" id="mainBanner">
+      <div class="main-header">
+        <button class="icon-btn" onclick="toggleDrawer()"><svg><use href="#icon-menu"/></svg></button>
+        <div class="server-title" id="mainServerTitle">Mikecord</div>
+        <button class="icon-btn" onclick="openSettings()"><svg><use href="#icon-settings"/></svg></button>
+      </div>
+    </div>
+
+    <div class="channel-list">
+      <div class="ch-category">
+        <span>Canales de Texto</span>
+        <svg style="width:18px;height:18px;cursor:pointer;" onclick="showToast('Próximamente: Crear canal')"><use href="#icon-add"/></svg>
+      </div>
+      <div class="ch-item" onclick="openChat('general')"><svg><use href="#icon-hash"/></svg> general</div>
+      <div class="ch-item" onclick="openChat('charla')"><svg><use href="#icon-hash"/></svg> charla</div>
+      <div class="ch-item" onclick="openChat('memes')"><svg><use href="#icon-hash"/></svg> memes</div>
+      <div class="ch-category">Canales de Voz</div>
+      <div class="ch-item" onclick="openChat('voz')"><svg><use href="#icon-volume"/></svg> Sala General</div>
+    </div>
+    
+    <div class="tab-bar">
+      <button class="tab-btn active"><svg><use href="#icon-home"/></svg></button>
+      <button class="tab-btn"><svg><use href="#icon-msg"/></svg></button>
+      <button class="tab-btn"><svg><use href="#icon-bell"/></svg></button>
+      <button class="tab-btn" onclick="openProfile()"><div class="tab-avatar" id="tabAvatar">T</div></button>
+    </div>
+  </div>
+    <!-- PANTALLA 2: CHAT -->
+  <div class="view chat-view" id="chatView">
+    <div class="chat-header">
+      <button class="icon-btn" onclick="closeChat()"><svg><use href="#icon-back"/></svg></button>
+      <div class="title" id="chatTitle"># general</div>
+      <!-- Icono de búsqueda simulado -->
+      <button class="icon-btn" style="margin-left:auto; width:36px; height:36px;" onclick="showToast('Buscador próximamente')"><svg style="width:18px;height:18px;"><use href="#icon-search"/></svg></button>
+    </div>
+    
+    <!-- Lista de mensajes -->
+    <div class="chat-messages" id="chatMessages">
+      <!-- Los mensajes se inyectan con JS -->
+    </div>
+
+    <!-- Menú flotante para reacciones -->
+    <div class="reaction-menu" id="reactionMenu">
+      <button class="reaction-btn" onclick="addReaction('❤️')">❤️</button>
+      <button class="reaction-btn" onclick="addReaction('😂')">😂</button>
+      <button class="reaction-btn" onclick="addReaction('🔥')">🔥</button>
+      <button class="reaction-btn" onclick="addReaction('👍')">👍</button>
+    </div>
+
+    <!-- Indicador de que alguien escribe -->
+    <div class="typing-indicator" id="typingIndicator">
+      <span id="typingName">Nico</span> está escribiendo<div class="typing-dots"><span></span><span></span><span></span></div>
+    </div>
+
+    <div class="chat-input-area">
+      <input type="text" id="chatInput" placeholder="Escribe un mensaje..." onkeydown="if(event.key==='Enter') sendMessage()">
+      <button class="send-btn" onclick="sendMessage()"><svg><use href="#icon-send"/></svg></button>
+    </div>
+  </div>
+
+  <!-- MENÚ LATERAL (Hamburguesa) -->
+  <div class="backdrop" id="drawerBackdrop" onclick="toggleDrawer()"></div>
+  <div class="drawer" id="drawer">
+    <div class="drawer-header">
+      <div style="font-weight: 900; font-size: 18px;">Servidores</div>
+      <button class="icon-btn" style="width:36px; height:36px; box-shadow:none; background:transparent; color:var(--txt);" onclick="toggleDrawer()"><svg><use href="#icon-close"/></svg></button>
+    </div>
+    <div class="server-list" id="serverList">
+      <!-- Servidores por defecto -->
+      <div class="server-item" onclick="selectServer('Mikecord', '#ff7a2f')">
+        <div class="server-icon" style="background:var(--accent); color:#fff;">M</div>
+        <div style="font-weight: 700;">Mikecord</div>
+      </div>
+      <div class="server-item" onclick="selectServer('Gaming ES', '#6bc5ff')">
+        <div class="server-icon" style="background:#6bc5ff; color:#fff;">G</div>
+        <div style="font-weight: 700;">Gaming ES</div>
+      </div>
+      <div class="server-item add-server" onclick="openCreateServer()">
+        <div class="server-icon"><svg><use href="#icon-add"/></svg></div>
+        <div style="font-weight: 700; color:var(--txt2);">Añadir Servidor</div>
+      </div>
+    </div>
+  </div>
+    <!-- PANTALLA 3: CREAR SERVIDOR -->
+  <div class="view create-view" id="createView">
+    <div class="create-header">
+      <button class="icon-btn" style="color:var(--txt); box-shadow:none; background:transparent;" onclick="closeCreateServer()"><svg><use href="#icon-close"/></svg></button>
+      <div style="font-weight: 800; font-size: 18px;">Crear Servidor</div>
+      <div style="width: 44px;"></div>
+    </div>
+    <div class="create-content">
+      <label class="upload-circle" id="uploadLabel">
+        <input type="file" accept="image/*" id="serverImageInput" onchange="previewImage(event)">
+        <div id="uploadText" style="text-align:center; font-size: 12px; font-weight:bold;">SUBIR<br>IMAGEN</div>
+        <img id="serverImagePreview" style="display:none;">
+      </label>
+      <div class="input-group">
+        <label>Nombre del Servidor</label>
+        <input type="text" id="newServerName" placeholder="Ej. Mi Comunidad">
+      </div>
+      <div class="input-group">
+        <label>Color del Servidor</label>
+        <div class="color-options" id="serverColorOptions">
+          <div class="color-opt active" style="background:#ff7a2f" onclick="selectServerColor('#ff7a2f', this)"></div>
+          <div class="color-opt" style="background:#6bc5ff" onclick="selectServerColor('#6bc5ff', this)"></div>
+          <div class="color-opt" style="background:#3aa856" onclick="selectServerColor('#3aa856', this)"></div>
+          <div class="color-opt" style="background:#f9ca24" onclick="selectServerColor('#f9ca24', this)"></div>
+          <div class="color-opt" style="background:#ff6b6b" onclick="selectServerColor('#ff6b6b', this)"></div>
+        </div>
+      </div>
+      <div class="input-group">
+        <label>Descripción</label>
+        <textarea id="newServerDesc" rows="3" placeholder="¿De qué trata este servidor?"></textarea>
+      </div>
+      <button class="primary-btn" onclick="createServer()">Crear Servidor</button>
+    </div>
+  </div>
+
+  <!-- PANTALLA 4: AJUSTES DEL SERVIDOR -->
+  <div class="view settings-view" id="settingsView">
+    <div class="settings-header">
+      <button class="icon-btn" style="color:var(--txt); box-shadow:none; background:transparent;" onclick="closeSettings()"><svg><use href="#icon-back"/></svg></button>
+      <div style="font-weight: 800; font-size: 18px;">Ajustes del Servidor</div>
+    </div>
+    <div class="settings-content">
+      
+      <!-- Cambiar nombre e imagen -->
+      <div class="section-title">Identidad</div>
+      <div class="input-group" style="margin-bottom: 16px;">
+        <input type="text" id="settingsServerName" value="Mikecord" oninput="changeServerName(this.value)">
+      </div>
+      <label class="upload-circle" style="margin-bottom: 24px;">
+        <input type="file" accept="image/*" onchange="changeServerImage(event)">
+        <div style="text-align:center; font-size: 12px; font-weight:bold;">CAMBIAR<br>IMAGEN</div>
+      </label>
+
+      <!-- Roles -->
+      <div class="section-title" style="display:flex; justify-content:space-between; align-items:center;">
+        <span>Roles del Servidor</span>
+        <div style="background:var(--accent); color:#fff; width:24px; height:24px; border-radius:8px; display:flex; align-items:center; justify-content:center; cursor:pointer;" onclick="openRoleEditor()">
+          <svg style="width:16px;height:16px;"><use href="#icon-add"/></svg>
+        </div>
+      </div>
+      
+      <div id="rolesList">
+        <!-- Los roles se inyectan con JS -->
+      </div>
+
+    </div>
+  </div>
+
+  <!-- PANTALLA 5: EDITOR DE ROLES (Modal Pantalla Completa) -->
+  <div class="role-modal-content" id="roleEditor">
+    <div class="settings-header">
+      <button class="icon-btn" style="color:var(--txt); box-shadow:none; background:transparent;" onclick="closeRoleEditor()"><svg><use href="#icon-close"/></svg></button>
+      <div style="font-weight: 800; font-size: 18px;" id="roleEditorTitle">Crear Rol</div>
+    </div>
+    
+    <div class="role-form">
+      <div class="input-group">
+        <label>Nombre del Rol</label>
+        <input type="text" id="roleNameInput" placeholder="Ej. Admin">
+      </div>
+      
+      <div class="input-group">
+        <label>Color del Rol</label>
+        <div class="color-options" id="roleColorOptions">
+          <div class="color-opt active" style="background:#ff7a2f" onclick="selectRoleColor('#ff7a2f', this)"></div>
+          <div class="color-opt" style="background:#6bc5ff" onclick="selectRoleColor('#6bc5ff', this)"></div>
+          <div class="color-opt" style="background:#3aa856" onclick="selectRoleColor('#3aa856', this)"></div>
+          <div class="color-opt" style="background:#f9ca24" onclick="selectRoleColor('#f9ca24', this)"></div>
+          <div class="color-opt" style="background:#e056fd" onclick="selectRoleColor('#e056fd', this)"></div>
+        </div>
+      </div>
+
+      <div class="input-group">
+        <label>Icono del Rol (Opcional)</label>
+        <label class="upload-circle" style="width: 60px; height: 60px; border-radius: 12px;">
+          <input type="file" accept="image/*" id="roleIconInput" onchange="previewRoleIcon(event)">
+          <div id="roleIconText" style="text-align:center; font-size: 10px; font-weight:bold;">SUBIR</div>
+          <img id="roleIconPreview" style="display:none;">
+        </label>
+      </div>
+
+      <div class="input-group">
+        <label>Permisos</label>
+        <div style="display:flex; align-items:center; gap:10px; background:var(--bg3); padding:12px; border-radius:12px;">
+          <input type="checkbox" id="permAdmin" style="width:20px; height:20px;">
+          <label for="permAdmin" style="font-size:14px; font-weight:bold; text-transform:none;">Administrador (Todos los permisos)</label>
+        </div>
+      </div>
+
+      <button class="primary-btn" onclick="saveRole()">Guardar Rol</button>
+    </div>
+  </div>
+    <!-- PANEL DE PERFIL (Deslizable) -->
+  <div class="profile-view" id="profileView">
+    <div class="drag-handle-area" id="dragHandle">
+      <div class="drag-handle"></div>
+    </div>
+    <div class="profile-content">
+      
+      <!-- Avatar con selector de foto -->
+      <div class="profile-avatar-container">
+        <label class="profile-avatar" id="mainAvatar" style="background: var(--accent);">
+          <input type="file" accept="image/*" id="profileImageInput" onchange="changeProfileImage(event)" style="display:none;">
+          <span id="mainAvatarText">T</span>
+        </label>
+        <div class="status-dot" id="statusDot"></div>
+      </div>
+      
+      <div style="text-align: center; margin-bottom: 10px;">
+        <div style="font-size: 24px; font-weight: 900;" id="profileNameDisplay">Tú</div>
+      </div>
+      
+      <div class="status-menu">
+        <div class="status-option active" onclick="setStatus('active', '#3aa856')">Activo</div>
+        <div class="status-option" onclick="setStatus('idle', '#f9ca24')">Ausente</div>
+        <div class="status-option" onclick="setStatus('dnd', '#ff6b6b')">No molestar</div>
+        <div class="status-option" onclick="setStatus('invisible', '#9a9ca6')">Invisible</div>
+      </div>
+      
+      <div class="section-title">Nombre de usuario</div>
+      <div class="input-group">
+        <input type="text" id="profileNameInput" value="Tú" oninput="updateName(this.value)">
+      </div>
+      
+      <div class="section-title">Biografía</div>
+      <div class="input-group">
+        <textarea rows="2" id="profileBio" placeholder="Cuéntale algo a la comunidad..."></textarea>
+      </div>
+      
+      <div class="section-title">Temas de la App</div>
+      <div class="theme-grid" id="themeGrid">
+        <div class="theme-option theme-dark active" onclick="setTheme('dark', this)" title="Oscuro"></div>
+        <div class="theme-option theme-light" onclick="setTheme('light', this)" title="Claro"></div>
+        <div class="theme-option theme-custom" onclick="openThemeModal()"><svg><use href="#icon-add"/></svg></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- MODAL TEMA PERSONALIZADO -->
+  <div class="modal" id="themeModal">
+    <div class="modal-content">
+      <h3 style="margin-bottom: 10px;">Tema Personalizado</h3>
+      <p style="font-size: 12px; color: var(--txt2); margin-bottom: 10px;">Elige dos colores</p>
+      <div class="color-pickers">
+        <input type="color" id="color1" value="#ff7a2f">
+        <input type="color" id="color2" value="#3aa856">
+      </div>
+      <button class="primary-btn" onclick="applyCustomTheme()">Aplicar Tema</button>
+      <button style="width:100%; background:transparent; border:none; color:var(--txt2); margin-top:15px; font-weight:bold; padding:10px; cursor:pointer;" onclick="closeThemeModal()">Cancelar</button>
+    </div>
+  </div>
+
+  <div class="toast" id="toast">¡Listo!</div>
+</div>
+<script>
+  // ===== Datos Globales =====
+  let currentServerColor = '#ff7a2f';
+  let currentChannel = 'general';
+  let selectedRoleColor = '#ff7a2f';
+  let roleIconSrc = '';
+  let currentReactionMsgId = null;
+  
+  // Roles del servidor (Simulados)
+  let serverRoles = [
+    { id: '1', name: 'Admin', color: '#ff7a2f', icon: '', permissions: 'All' },
+    { id: '2', name: 'Mod', color: '#3aa856', icon: '', permissions: 'Manage' }
+  ];
+
+  // Datos del chat con menciones y reacciones
+  const chatData = {
+    general: [
+      { id: 'm1', n:'Nico', c:'#ff6b6b', t:'10:02', m:'¡Buenas! ¿Qué tal el día?', role: serverRoles[0], reactions: [] }, 
+      { id: 'm2', n:'Vale', c:'#6bc5ff', t:'10:03', m:'Por aquí, con ganas de finde', role: serverRoles[1], reactions: [{emoji: '🔥', count: 2}] }
+    ],
+    charla: [{ id: 'm3', n:'Vale', c:'#6bc5ff', t:'09:40', m:'¿Alguien ha visto la nueva serie?', role: null, reactions: [] }],
+    memes: [{ id: 'm4', n:'Dani', c:'#f9ca24', t:'08:15', m:'El meme del día 😂', role: null, reactions: [] }],
+    voz: [{ id: 'm5', n:'MikeBot', c:'#3aa856', t:'Ahora', m:'Estás en el canal de voz.', role: null, reactions: [] }]
+  };
+
+  // ===== Navegación Canales / Chat =====
+  function openChat(channelId) {
+    currentChannel = channelId;
+    document.getElementById('chatTitle').textContent = (channelId === 'voz' ? 'Sala General' : '# ' + channelId);
+    renderMessages();
+    document.getElementById('chatView').classList.add('active');
+  }
+  
+  function closeChat() { document.getElementById('chatView').classList.remove('active'); }
+
+  // ===== Renderizar Mensajes (Con Menciones, Roles y Reacciones) =====
+  function renderMessages() {
+    const cont = document.getElementById('chatMessages');
+    cont.innerHTML = '';
+    
+    (chatData[currentChannel] || []).forEach(msg => {
+      // Parsear menciones @alguien
+      let parsedText = msg.m.replace(/@(\w+)/g, '<span class="mention" onclick="showToast(\'Mención a @$1\')">@$1</span>');
+      
+      // Renderizar icono de rol si existe
+      let roleIcon = msg.role && msg.role.icon ? `<img src="${msg.role.icon}" class="role-icon">` : '';
+      
+      // Renderizar reacciones
+      let reactionsHTML = '';
+      if (msg.reactions && msg.reactions.length > 0) {
+        reactionsHTML = `<div class="msg-reactions">` + msg.reactions.map(r => `<div class="reaction-badge" onclick="toggleReaction('${msg.id}', '${r.emoji}')">${r.emoji} ${r.count}</div>`).join('') + `</div>`;
+      }
+
+      cont.innerHTML += `
+        <div class="msg" id="${msg.id}" oncontextmenu="showReactionMenu(event, '${msg.id}'); return false;" onmousedown="startPress(event, '${msg.id}')" onmouseup="cancelPress()" ontouchstart="startPress(event, '${msg.id}')" ontouchend="cancelPress()">
+          <div class="msg-avatar" style="background:${msg.c}">${msg.n[0]}</div>
+          <div class="msg-content">
+            <div class="msg-info">
+              <span class="msg-name" style="color:${msg.c}">
+                ${roleIcon} ${msg.n}
+              </span>
+              <span class="msg-time">${msg.t}</span>
+            </div>
+            <div class="msg-text">${parsedText}</div>
+            ${reactionsHTML}
+          </div>
+        </div>`;
+    });
+    cont.scrollTop = cont.scrollHeight;
+  }
+
+  // ===== Enviar Mensaje y Simular "Escribiendo..." =====
+  function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const txt = input.value.trim();
+    if (!txt) return;
+    
+    const time = new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+    chatData[currentChannel].push({ 
+      id: 'm' + Date.now(), 
+      n:'Tú', 
+      c: currentServerColor, 
+      t: time, 
+      m: txt, 
+      role: null, 
+      reactions: [] 
+    });
+    
+    input.value = '';
+    renderMessages();
+    
+    // Simular que Nico está escribiendo y responde
+    const typing = document.getElementById('typingIndicator');
+    typing.classList.add('show');
+    setTimeout(() => {
+      typing.classList.remove('show');
+      chatData[currentChannel].push({ 
+        id: 'm' + Date.now(), 
+        n:'Nico', 
+        c:'#ff6b6b', 
+        t: new Date().toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}), 
+        m: '¡Totalmente de acuerdo! @Tú', 
+        role: serverRoles[0], 
+        reactions: [] 
+      });
+      renderMessages();
+    }, 2500);
+  }
+
+  // ===== Menciones y Reacciones =====
+  let pressTimer;
+  function startPress(e, msgId) {
+    currentReactionMsgId = msgId;
+    pressTimer = setTimeout(() => showReactionMenu(e, msgId), 500); // 500ms de mantener presionado
+  }
+  function cancelPress() { clearTimeout(pressTimer); }
+
+  function showReactionMenu(e, msgId) {
+    const menu = document.getElementById('reactionMenu');
+    currentReactionMsgId = msgId;
+    menu.classList.add('show');
+    // Posicionar el menú cerca del toque
+    if(e.touches) e = e.touches[0];
+    menu.style.top = (e.clientY - 60) + 'px';
+    menu.style.left = (e.clientX - 100) + 'px';
+  }
+
+  function addReaction(emoji) {
+    const menu = document.getElementById('reactionMenu');
+    menu.classList.remove('show');
+    toggleReaction(currentReactionMsgId, emoji);
+  }
+
+  function toggleReaction(msgId, emoji) {
+    const msg = chatData[currentChannel].find(m => m.id === msgId);
+    if (!msg) return;
+    const existing = msg.reactions.find(r => r.emoji === emoji);
+    if (existing) {
+      existing.count++;
+    } else {
+      msg.reactions.push({ emoji: emoji, count: 1 });
+    }
+    renderMessages();
+  }
+
+  // ===== Menú Lateral y Servidores =====
+  function toggleDrawer() {
+    document.getElementById('drawer').classList.toggle('open');
+    document.getElementById('drawerBackdrop').classList.toggle('show');
+    const main = document.getElementById('mainView');
+    if (document.getElementById('drawer').classList.contains('open')) {
+      main.style.transform = 'scale(0.95) translateX(10px)';
+      main.style.borderRadius = '20px';
+    } else {
+      main.style.transform = 'scale(1) translateX(0)';
+      main.style.borderRadius = '0';
+    }
+  }
+
+  function selectServer(name, color) {
+    document.getElementById('mainServerTitle').textContent = name;
+    currentServerColor = color;
+    // Actualizar color del banner y botones
+    document.getElementById('mainBanner').style.background = `linear-gradient(135deg, ${color}, ${color}99)`;
+    document.documentElement.style.setProperty('--accent', color);
+    // Actualizar ajustes
+    document.getElementById('settingsServerName').value = name;
+    
+    document.getElementById('createView').classList.remove('active');
+    document.getElementById('drawer').classList.remove('open');
+    document.getElementById('drawerBackdrop').classList.remove('show');
+    const main = document.getElementById('mainView');
+    main.style.transform = 'scale(1) translateX(0)';
+    main.style.borderRadius = '0';
+  }
+
+  // ===== Crear Servidor =====
+  function openCreateServer() { toggleDrawer(); document.getElementById('createView').classList.add('active'); }
+  function closeCreateServer() { document.getElementById('createView').classList.remove('active'); }
+
+  function selectServerColor(color, el) {
+    currentServerColor = color;
+    document.querySelectorAll('#serverColorOptions .color-opt').forEach(opt => opt.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function previewImage(e) {
+    if (e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        document.getElementById('uploadText').style.display = 'none';
+        const img = document.getElementById('serverImagePreview');
+        img.src = evt.target.result;
+        img.style.display = 'block';
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  }
+
+  function createServer() {
+    const name = document.getElementById('newServerName').value || 'Nuevo Servidor';
+    const imgSrc = document.getElementById('serverImagePreview').src;
+    const list = document.getElementById('serverList');
+    const newItem = document.createElement('div');
+    newItem.className = 'server-item';
+    newItem.onclick = () => { selectServer(name, currentServerColor); toggleDrawer(); };
+    
+    let iconHTML = imgSrc ? `<img src="${imgSrc}">` : name[0].toUpperCase();
+    let iconStyle = imgSrc ? '' : `background:${currentServerColor}; color:#fff;`;
+    
+    newItem.innerHTML = `
+      <div class="server-icon" style="${iconStyle}">${iconHTML}</div>
+      <div style="font-weight: 700;">${name}</div>
+    `;
+    list.insertBefore(newItem, list.lastElementChild);
+    
+    selectServer(name, currentServerColor);
+    closeCreateServer();
+    showToast('¡Listo!');
+  }
+
+  // ===== Ajustes del Servidor =====
+  function openSettings() { document.getElementById('settingsView').classList.add('active'); }
+  function closeSettings() { document.getElementById('settingsView').classList.remove('active'); }
+
+  function changeServerName(val) {
+    document.getElementById('mainServerTitle').textContent = val || 'Servidor';
+  }
+  function changeServerImage(e) {
+    if(e.target.files[0]) showToast('Imagen del servidor actualizada');
+  }
+
+  // ===== Roles del Servidor =====
+  function renderRoles() {
+    const list = document.getElementById('rolesList');
+    list.innerHTML = '';
+    serverRoles.forEach(role => {
+      let iconHTML = role.icon ? `<img src="${role.icon}" class="role-icon-preview">` : '';
+      list.innerHTML += `
+        <div class="role-card" onclick="editRole('${role.id}')">
+          <div class="role-info">
+            <div class="role-color-dot" style="background:${role.color}"></div>
+            ${iconHTML}
+            <span style="font-weight:bold;">${role.name}</span>
+          </div>
+          <svg style="width:16px;height:16px;color:var(--txt2);"><use href="#icon-back"/></svg>
+        </div>
+      `;
+    });
+  }
+
+  function openRoleEditor() { 
+    document.getElementById('roleEditorTitle').textContent = 'Crear Rol';
+    document.getElementById('roleNameInput').value = '';
+    roleIconSrc = '';
+    document.getElementById('roleIconPreview').style.display = 'none';
+    document.getElementById('roleIconText').style.display = 'block';
+    document.getElementById('roleEditor').classList.add('show'); 
+  }
+  function closeRoleEditor() { document.getElementById('roleEditor').classList.remove('show'); }
+
+  function selectRoleColor(color, el) {
+    selectedRoleColor = color;
+    document.querySelectorAll('#roleColorOptions .color-opt').forEach(opt => opt.classList.remove('active'));
+    el.classList.add('active');
+  }
+
+  function previewRoleIcon(e) {
+    if (e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        document.getElementById('roleIconText').style.display = 'none';
+        const img = document.getElementById('roleIconPreview');
+        img.src = evt.target.result;
+        img.style.display = 'block';
+        roleIconSrc = evt.target.result;
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  }
+
+  function saveRole() {
+    const name = document.getElementById('roleNameInput').value || 'Nuevo Rol';
+    serverRoles.push({ id: Date.now().toString(), name: name, color: selectedRoleColor, icon: roleIconSrc });
+    renderRoles();
+    closeRoleEditor();
+    showToast('Rol creado');
+  }
+
+  function editRole(id) {
+    showToast('Editar rol próximamente');
+  }
+
+  // ===== Perfil y Avatar =====
+  function openProfile() { 
+    document.getElementById('profileView').classList.add('open'); 
+    renderRoles(); // Aseguramos que los roles se vean
+  }
+  
+  function changeProfileImage(e) {
+    if (e.target.files[0]) {
+      const reader = new FileReader();
+      reader.onload = function(evt) {
+        document.getElementById('mainAvatar').style.backgroundImage = `url(${evt.target.result})`;
+        document.getElementById('mainAvatar').style.backgroundSize = 'cover';
+        document.getElementById('mainAvatarText').style.display = 'none';
+        document.getElementById('tabAvatar').style.backgroundImage = `url(${evt.target.result})`;
+        document.getElementById('tabAvatar').style.backgroundSize = 'cover';
+        document.getElementById('tabAvatar').textContent = '';
+      };
+      reader.readAsDataURL(e.target.files[0]);
+    }
+  }
+
+  let startY = 0;
+  const profileView = document.getElementById('profileView');
+  const dragHandle = document.getElementById('dragHandle');
+  dragHandle.addEventListener('touchstart', e => { startY = e.touches[0].clientY; });
+  dragHandle.addEventListener('touchmove', e => { if (e.touches[0].clientY > startY + 50) profileView.classList.remove('open'); });
+  profileView.addEventListener('click', e => { if (e.target === profileView) profileView.classList.remove('open'); });
+
+  function updateName(val) {
+    document.getElementById('profileNameDisplay').textContent = val || 'Tú';
+    document.getElementById('tabAvatar').textContent = val ? val[0].toUpperCase() : 'T';
+    document.getElementById('mainAvatarText').textContent = val ? val[0].toUpperCase() : 'T';
+  }
+
+  function setStatus(status, color) {
+    document.getElementById('statusDot').style.background = color;
+    document.querySelectorAll('.status-option').forEach(el => el.classList.remove('active'));
+    event.target.classList.add('active');
+  }
+
+  // ===== Temas =====
+  function setTheme(type, el) {
+    document.querySelectorAll('.theme-option').forEach(t => t.classList.remove('active'));
+    el.classList.add('active');
+    if (type === 'dark') {
+      document.body.classList.remove('light-theme');
+      document.getElementById('app').style.background = '';
+    } else if (type === 'light') {
+      document.body.classList.add('light-theme');
+      document.getElementById('app').style.background = '';
+    }
+  }
+  function openThemeModal() { document.getElementById('themeModal').classList.add('show'); }
+  function closeThemeModal() { document.getElementById('themeModal').classList.remove('show'); }
+  function applyCustomTheme() {
+    const c1 = document.getElementById('color1').value;
+    const c2 = document.getElementById('color2').value;
+    document.getElementById('app').style.background = `linear-gradient(135deg, ${c1}, ${c2})`;
+    closeThemeModal();
+  }
+
+  // ===== Utilidades =====
+  function showToast(msg) {
+    const t = document.getElementById('toast');
+    t.textContent = msg;
+    t.classList.add('show');
+    setTimeout(() => t.classList.remove('show'), 2000);
+  }
+
+  // Inicializar
+  renderMessages();
+  renderRoles();
+</script>
+</body>
+</html>
